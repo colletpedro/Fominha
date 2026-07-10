@@ -35,7 +35,7 @@ def _read_index_built_at() -> str:
     return meta["built_at"]
 
 
-def _build_masked_queries(df, n_eval, mask_frac, rng):
+def build_masked_queries(df, n_eval, mask_frac, rng):
     """Amostra n_eval receitas com >= 3 tokens e mascara mask_frac de cada uma.
 
     Retorna lista de (origin_recipe_id, kept_tokens). A receita NAO e removida do
@@ -83,7 +83,7 @@ def evaluate(
     by_id = df.set_index("recipe_id")["ingredients_canonical"]
 
     rng = np.random.default_rng(seed)
-    queries = _build_masked_queries(df, n_eval, mask_frac, rng)
+    queries = build_masked_queries(df, n_eval, mask_frac, rng)
     n_actual = len(queries)
 
     k_top = max(max(ks_hit), max(ks_prec))

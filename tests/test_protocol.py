@@ -12,7 +12,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from fominha.eval import protocol as protocol_module
-from fominha.eval.protocol import _build_masked_queries, _jaccard, evaluate
+from fominha.eval.protocol import build_masked_queries, _jaccard, evaluate
 from fominha.mode1 import index as index_module
 from fominha.mode1 import recommend as recommend_module
 
@@ -119,7 +119,7 @@ def test_masking_keeps_at_least_two_masks_at_least_one_and_boundary():
     ]
     df = _make_df(recipes)
     rng = np.random.default_rng(42)
-    queries = _build_masked_queries(df, n_eval=100, mask_frac=0.3, rng=rng)
+    queries = build_masked_queries(df, n_eval=100, mask_frac=0.3, rng=rng)
 
     assert {rid for rid, _ in queries} == {0, 1, 2}
     for rid, kept in queries:
@@ -142,7 +142,7 @@ def test_recipes_below_three_tokens_are_excluded():
     ]
     df = _make_df(recipes)
     rng = np.random.default_rng(0)
-    queries = _build_masked_queries(df, n_eval=100, mask_frac=0.3, rng=rng)
+    queries = build_masked_queries(df, n_eval=100, mask_frac=0.3, rng=rng)
 
     ids = {rid for rid, _ in queries}
     assert ids == {0, 3}
