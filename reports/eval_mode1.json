@@ -1,0 +1,20 @@
+{
+  "protocol": "masked-recipe-retrieval + overlap-relevance",
+  "n_recipes_index": 99634,
+  "n_eval_queries": 1000,
+  "mask_frac": 0.3,
+  "seed": 42,
+  "jaccard_threshold": 0.5,
+  "metrics": {
+    "hit_rate@1": 0.812,
+    "hit_rate@5": 0.925,
+    "hit_rate@10": 0.953,
+    "precision@5": 0.337,
+    "precision@10": 0.2305
+  },
+  "avg_relevant_per_query": {
+    "@5": 1.685,
+    "@10": 2.305
+  },
+  "built_at": "2026-07-10T18:21:45.520106+00:00"
+}
