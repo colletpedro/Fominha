@@ -3,3 +3,5 @@ pyarrow
 scikit-learn
 scipy
 pytest
+sentence-transformers
+faiss-cpu
