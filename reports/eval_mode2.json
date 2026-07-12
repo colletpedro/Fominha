@@ -1,0 +1,19 @@
+{
+  "protocol": "masked-retrieval-semantic (C)",
+  "n_recipes_index": 99634,
+  "n_eval_queries": 1000,
+  "mask_frac": 0.3,
+  "seed": 42,
+  "query_format": "tokens joined by ', '",
+  "metrics": {
+    "mode2_hit_rate@1": 0.062,
+    "mode2_hit_rate@5": 0.115,
+    "mode2_hit_rate@10": 0.16
+  },
+  "mode1_reference": {
+    "hit_rate@1": 0.812,
+    "hit_rate@5": 0.925,
+    "hit_rate@10": 0.953
+  },
+  "index_built_at": "2026-07-10T22:23:37.267840+00:00"
+}
