@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fominha — recommender demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #f4f1ea;
+    color: #2a2622;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: #c05621; text-decoration: none; }
+  a:hover { color: #9c4417; text-decoration: underline; }
+
+  @keyframes fom-shimmer { 0% { background-position: -360px 0; } 100% { background-position: 360px 0; } }
+  @keyframes fom-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .fom-in {
+    background: #fff;
+    border: 1px solid #e0dacf;
+    border-radius: 10px;
+    font: 500 15px/1.4 'IBM Plex Sans', sans-serif;
+    color: #2a2622;
+  }
+  .fom-in::placeholder { color: #b3a996; }
+  .fom-in:focus { outline: none; border-color: #c05621; box-shadow: 0 0 0 3px rgba(192,86,33,.14); }
+
+  .container { max-width: 1180px; margin: 0 auto; padding: 38px 28px 60px; }
+
+  header { margin-bottom: 26px; }
+  .header-top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1.title { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
+  .badge-demo {
+    font: 500 12px/1 'IBM Plex Mono', monospace;
+    color: #8f867b; padding: 5px 9px; border: 1px solid #e0dacf;
+    border-radius: 999px; background: #fbfaf6;
+  }
+  .subtitle { margin: 10px 0 0; max-width: 640px; font-size: 15px; line-height: 1.55; color: #6f665b; }
+  .subtitle strong { color: #2a2622; font-weight: 600; }
+
+  .search-row { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+  #query-input { flex: 1; min-width: 280px; padding: 13px 16px; }
+  #search-btn {
+    flex: none; padding: 0 26px; border: none; border-radius: 10px;
+    background: #2a2622; color: #fff; font: 600 15px 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+  }
+  #search-btn:hover { background: #3b352e; }
+
+  .error-line { margin-top: 10px; font: 500 13px 'IBM Plex Mono', monospace; color: #b23b2e; }
+
+  .examples-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 16px; }
+  .examples-label {
+    font: 500 11px/1 'IBM Plex Mono', monospace; color: #a99e8d;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .example-pill {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px;
+    border: 1px solid #e0dacf; border-radius: 999px; background: #fbfaf6;
+    cursor: pointer; font: 500 12.5px 'IBM Plex Sans', sans-serif; color: #4a433a;
+  }
+  .example-pill:hover { border-color: #c9bfae; background: #fff; }
+  .example-pill .note { font: 500 10px/1 'IBM Plex Mono', monospace; color: #a99e8d; }
+
+  .disclaimer-row { display: flex; justify-content: center; margin: 30px 0 16px; }
+  .disclaimer-pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
+    border: 1px dashed #cbc1b0; border-radius: 999px; background: #faf8f2;
+    font: 500 12px 'IBM Plex Mono', monospace; color: #8a8073; cursor: help;
+  }
+  .disclaimer-pill .neq { font-size: 14px; color: #c05621; }
+
+  .columns { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+  .column { flex: 1; min-width: 360px; animation: fom-fade .4s ease both; }
+  .column-header { border-bottom: 2px solid #2a2622; padding-bottom: 10px; margin-bottom: 16px; }
+  .column-header-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .column-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+  .badge-lex {
+    font: 600 10.5px/1 'IBM Plex Mono', monospace; color: #3f7a45;
+    background: #e6f2e4; padding: 4px 8px; border-radius: 5px;
+  }
+  .badge-sem {
+    font: 600 10.5px/1 'IBM Plex Mono', monospace; color: #4a4a8a;
+    background: #e8e8f4; padding: 4px 8px; border-radius: 5px;
+  }
+  .column-sub { margin: 6px 0 0; font-size: 12.5px; color: #8f867b; }
+
+  .state-idle { padding: 34px 18px; text-align: center; color: #b3a996; font-size: 13.5px; }
+
+  .results-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .skeleton-card { border: 1px solid #ece7dd; border-radius: 11px; background: #fff; padding: 16px; }
+  .skeleton-line {
+    border-radius: 5px;
+    background: linear-gradient(90deg, #efeae1 25%, #f7f3ec 37%, #efeae1 63%);
+    background-size: 360px 100%;
+    animation: fom-shimmer 1.2s infinite linear;
+  }
+
+  .empty-box {
+    border: 1px dashed #cbc1b0; border-radius: 11px; background: #faf8f2;
+    padding: 24px 20px; animation: fom-fade .4s ease both;
+  }
+  .empty-title { font: 600 14px 'IBM Plex Sans', sans-serif; color: #4a433a; }
+  .empty-text { margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: #8f867b; }
+  .empty-text .mono { font-family: 'IBM Plex Mono', monospace; color: #4a433a; }
+
+  .error-box {
+    border: 1px dashed #d9a79c; border-radius: 11px; background: #fbeeec;
+    padding: 20px; animation: fom-fade .4s ease both;
+  }
+  .error-box .error-title { font: 600 13.5px 'IBM Plex Sans', sans-serif; color: #b23b2e; }
+  .error-box .error-text { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: #8f867b; }
+
+  .card {
+    border: 1px solid #e6e1d7; border-radius: 11px; background: #fff;
+    padding: 16px 16px 15px; animation: fom-fade .4s ease both;
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .card-title { margin: 0; font-size: 15.5px; font-weight: 600; line-height: 1.3; }
+  .card-score-wrap { flex: none; text-align: right; }
+  .card-score { font: 600 15px/1 'IBM Plex Mono', monospace; color: #2a2622; }
+  .card-score-label {
+    font: 500 8.5px/1 'IBM Plex Mono', monospace; color: #b3a996;
+    letter-spacing: .08em; text-transform: uppercase; margin-top: 3px;
+  }
+
+  .chip-section { margin-top: 12px; }
+  .chip-section.missing { margin-top: 10px; }
+  .chip-label {
+    font: 500 9.5px/1 'IBM Plex Mono', monospace; color: #a99e8d;
+    letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip-matched {
+    font: 500 12px 'IBM Plex Mono', monospace; color: #37703d;
+    background: #e6f2e4; border: 1px solid #cfe6cd; padding: 3px 9px; border-radius: 6px;
+  }
+  .chip-missing {
+    font: 500 12px 'IBM Plex Mono', monospace; color: #8f867b;
+    background: #f0ede7; border: 1px solid #e3ddd2; padding: 3px 9px; border-radius: 6px;
+  }
+
+  .card-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 13px; font: 500 12.5px 'IBM Plex Mono', monospace; }
+
+  footer {
+    margin-top: 44px; padding-top: 20px; border-top: 1px solid #e6e1d7;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .footer-api { font: 400 12px 'IBM Plex Mono', monospace; color: #a99e8d; }
+  .footer-link { display: inline-flex; align-items: center; gap: 6px; font: 500 13px 'IBM Plex Sans', sans-serif; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-top">
+      <h1 class="title">Fominha</h1>
+      <span class="badge-demo">recommender · demo</span>
+    </div>
+    <p class="subtitle">Two search engines, one query — run side by side. This UI exists to make the <strong>contrast</strong> between lexical and semantic retrieval visible, not to hide it.</p>
+  </header>
+
+  <div class="search-row">
+    <input id="query-input" class="fom-in" placeholder="Ingredients (chicken, rice, garlic) or an intent (something cozy for a rainy day)…">
+    <button id="search-btn">Search both</button>
+  </div>
+
+  <div id="error-line" class="error-line" hidden></div>
+
+  <div class="examples-row">
+    <span class="examples-label">try</span>
+    <button class="example-pill" data-query="flour sugar butter eggs vanilla" title="lexical wins">
+      <span>flour sugar butter eggs vanilla</span>
+      <span class="note">lexical wins</span>
+    </button>
+    <button class="example-pill" data-query="cozy winter dessert" title="semantic wins">
+      <span>cozy winter dessert</span>
+      <span class="note">semantic wins</span>
+    </button>
+    <button class="example-pill" data-query="easy pasta with garlic and no cream" title="both miss the negation">
+      <span>easy pasta with garlic and no cream</span>
+      <span class="note">both miss the negation</span>
+    </button>
+    <button class="example-pill" data-query="chicken rice garlic" title="clean overlap">
+      <span>chicken rice garlic</span>
+      <span class="note">clean overlap</span>
+    </button>
+  </div>
+
+  <div class="disclaimer-row">
+    <span class="disclaimer-pill" title="Mode 1 returns TF-IDF cosine scores; Mode 2 returns embedding cosine scores. Different vector geometries — a 0.70 in one mode does not mean the same thing as a 0.70 in the other. Compare rankings within a column, never scores across columns.">
+      <span class="neq">≠</span> scores are not comparable across modes
+    </span>
+  </div>
+
+  <div class="columns">
+
+    <!-- ============ MODE 1 : LEXICAL ============ -->
+    <section class="column">
+      <div class="column-header">
+        <div class="column-header-top">
+          <h2>Mode 1 — Lexical</h2>
+          <span class="badge-lex">TF-IDF</span>
+        </div>
+        <p class="column-sub">Exact ingredient overlap · matched &amp; missing shown</p>
+      </div>
+      <div id="lex-body">
+        <div class="state-idle">Results will appear here.</div>
+      </div>
+    </section>
+
+    <!-- ============ MODE 2 : SEMANTIC ============ -->
+    <section class="column">
+      <div class="column-header">
+        <div class="column-header-top">
+          <h2>Mode 2 — Semantic</h2>
+          <span class="badge-sem">embeddings</span>
+        </div>
+        <p class="column-sub">Meaning-based · no concept of ingredient matching</p>
+      </div>
+      <div id="sem-body">
+        <div class="state-idle">Results will appear here.</div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <span class="footer-api">POST /api/recommend · POST /api/search · { query, k }</span>
+    <a class="footer-link" href="https://github.com/colletpedro/Fominha" target="_blank" rel="noopener">source on GitHub ↗</a>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const K = 5;
+
+  const queryInput = document.getElementById('query-input');
+  const searchBtn = document.getElementById('search-btn');
+  const errorLine = document.getElementById('error-line');
+  const lexBody = document.getElementById('lex-body');
+  const semBody = document.getElementById('sem-body');
+
+  let currentRequestId = 0;
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function showError(message) {
+    errorLine.textContent = message;
+    errorLine.hidden = false;
+  }
+
+  function clearError() {
+    errorLine.textContent = '';
+    errorLine.hidden = true;
+  }
+
+  function skeletonCardHtml(lineWidths) {
+    const lines = lineWidths.map((w, i) => {
+      const height = i === lineWidths.length - 1 ? 22 : (i === 0 ? 15 : 11);
+      const marginTop = i === 0 ? 0 : (i === lineWidths.length - 1 ? 14 : 12);
+      const radius = i === lineWidths.length - 1 ? 6 : 5;
+      return '<div class="skeleton-line" style="height:' + height + 'px;width:' + w + '%;margin-top:' + marginTop + 'px;border-radius:' + radius + 'px"></div>';
+    }).join('');
+    return '<div class="skeleton-card">' + lines + '</div>';
+  }
+
+  function renderLoading(container, lineWidths) {
+    container.innerHTML = '<div class="results-list">' +
+      skeletonCardHtml(lineWidths) + skeletonCardHtml(lineWidths) + skeletonCardHtml(lineWidths) +
+      '</div>';
+  }
+
+  function renderIdle(container) {
+    container.innerHTML = '<div class="state-idle">Results will appear here.</div>';
+  }
+
+  function renderLexEmpty(container) {
+    container.innerHTML =
+      '<div class="empty-box">' +
+      '<div class="empty-title">No recognizable ingredients in this query</div>' +
+      '<p class="empty-text">Lexical search needs concrete ingredient tokens (e.g. <span class="mono">chicken, rice, garlic</span>). It has no notion of intent — that\'s exactly what Mode 2 is for. →</p>' +
+      '</div>';
+  }
+
+  function renderColumnError(container, message) {
+    container.innerHTML =
+      '<div class="error-box">' +
+      '<div class="error-title">Request failed</div>' +
+      '<p class="error-text">' + escapeHtml(message) + '</p>' +
+      '</div>';
+  }
+
+  function chipRow(items, kind) {
+    const cls = kind === 'matched' ? 'chip-matched' : 'chip-missing';
+    return '<div class="chip-row">' +
+      items.map(function (name) { return '<span class="' + cls + '">' + escapeHtml(name) + '</span>'; }).join('') +
+      '</div>';
+  }
+
+  function lexCardHtml(r) {
+    let html = '<article class="card">' +
+      '<div class="card-top">' +
+      '<h3 class="card-title">' + escapeHtml(r.title) + '</h3>' +
+      '<div class="card-score-wrap">' +
+      '<div class="card-score">' + r.score.toFixed(4) + '</div>' +
+      '<div class="card-score-label">score</div>' +
+      '</div>' +
+      '</div>';
+
+    if (r.matched_ingredients && r.matched_ingredients.length > 0) {
+      html += '<div class="chip-section matched">' +
+        '<div class="chip-label">matched</div>' +
+        chipRow(r.matched_ingredients, 'matched') +
+        '</div>';
+    }
+
+    if (r.missing_ingredients && r.missing_ingredients.length > 0) {
+      html += '<div class="chip-section missing">' +
+        '<div class="chip-label">missing</div>' +
+        chipRow(r.missing_ingredients, 'missing') +
+        '</div>';
+    }
+
+    html += '<a class="card-link" href="' + escapeHtml(r.link) + '" target="_blank" rel="noopener">view recipe ↗</a>' +
+      '</article>';
+    return html;
+  }
+
+  function semCardHtml(r) {
+    return '<article class="card">' +
+      '<div class="card-top">' +
+      '<h3 class="card-title">' + escapeHtml(r.title) + '</h3>' +
+      '<div class="card-score-wrap">' +
+      '<div class="card-score">' + r.score.toFixed(4) + '</div>' +
+      '<div class="card-score-label">score</div>' +
+      '</div>' +
+      '</div>' +
+      '<a class="card-link" href="' + escapeHtml(r.link) + '" target="_blank" rel="noopener">view recipe ↗</a>' +
+      '</article>';
+  }
+
+  function renderLexDone(container, results) {
+    container.innerHTML = '<div class="results-list">' +
+      results.map(lexCardHtml).join('') +
+      '</div>';
+  }
+
+  function renderSemDone(container, results) {
+    container.innerHTML = '<div class="results-list">' +
+      results.map(semCardHtml).join('') +
+      '</div>';
+  }
+
+  async function callApi(endpoint, query, k) {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query, k: k }),
+    });
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const body = await res.json();
+        if (body && body.detail) {
+          detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+        }
+      } catch (e) { /* ignore parse failure, fall back to statusText */ }
+      throw new Error(detail);
+    }
+    return res.json();
+  }
+
+  function submit() {
+    const q = (queryInput.value || '').trim();
+    if (!q) {
+      showError('Type a few ingredients or a phrase to search.');
+      return;
+    }
+    clearError();
+
+    const rid = ++currentRequestId;
+
+    renderLoading(lexBody, [62, 34, 80]);
+    renderLoading(semBody, [55, 28]);
+
+    callApi('/api/recommend', q, K).then(function (results) {
+      if (rid !== currentRequestId) return;
+      if (results.length === 0) renderLexEmpty(lexBody);
+      else renderLexDone(lexBody, results);
+    }).catch(function (err) {
+      if (rid !== currentRequestId) return;
+      renderColumnError(lexBody, err.message);
+    });
+
+    callApi('/api/search', q, K).then(function (results) {
+      if (rid !== currentRequestId) return;
+      renderSemDone(semBody, results);
+    }).catch(function (err) {
+      if (rid !== currentRequestId) return;
+      renderColumnError(semBody, err.message);
+    });
+  }
+
+  function setQueryAndRun(q) {
+    queryInput.value = q;
+    submit();
+  }
+
+  searchBtn.addEventListener('click', submit);
+  queryInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') submit();
+  });
+  queryInput.addEventListener('input', clearError);
+
+  document.querySelectorAll('.example-pill').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setQueryAndRun(btn.getAttribute('data-query'));
+    });
+  });
+})();
+</script>
+</body>
+</html>
