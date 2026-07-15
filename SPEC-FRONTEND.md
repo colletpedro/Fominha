@@ -62,7 +62,7 @@ Serve `frontend/index.html`. Mesma origem para API e estático → sem CORS.
 
 ## 5. Critérios de aceite (gate da fase 3)
 
-1. `uvicorn src.fominha.api.app:app` sobe; `GET /` serve a página; os 2 endpoints respondem conforme seção 3 (validado com 3 queries reais: uma de cada regime).
+1. `python -m uvicorn fominha.api.app:app` sobe (pacote instalado via `pip install -e .`, src-layout, sem muleta `PYTHONPATH`); `GET /` serve a página; os 2 endpoints respondem conforme seção 3 (validado com 3 queries reais: uma de cada regime).
 2. UI portada fiel ao protótipo (side-by-side, assimetria, aviso, estados) em vanilla, sem runtime proprietário, funcionando em browser local.
 3. `tests/test_api.py`: contratos dos 2 endpoints (schema da resposta, 422 para query vazia e k inválido, [] para query sem ingredientes no Modo 1). Suíte total verde.
 4. README com seção Demo UI: como rodar (2 comandos) + GIF gravado da busca lado a lado.
