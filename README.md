@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/2e353777-f0f4-4365-a165-2d9028a7acc9
+
 # Fominha
 
 Recipe recommender with two retrieval modes: content-based (Mode 1, lexical/TF-IDF) and semantic search (Mode 2, embeddings). Give it ingredients or a natural-language craving, get back ranked recipes.
