@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import pytest
 from fastapi.testclient import TestClient
 
-from fominha.api.app import _tokenize_for_mode1, app
+from fominha.api.app import _normalize_link, _tokenize_for_mode1, app
 
 # TestClient como context manager aciona o lifespan (D-43), carregando os
 # indices reais uma unica vez para toda a suite.
@@ -128,3 +128,50 @@ def test_recommend_comma_query_preserves_compound_in_matched():
     for item in body:
         assert "cream" not in item["matched_ingredients"]
         assert "cheese" not in item["matched_ingredients"]
+
+
+# --------------------------------------------------------------------------- #
+# Normalizacao do campo link (RecipeNLG guarda links sem esquema)
+# --------------------------------------------------------------------------- #
+
+def test_normalize_link_adds_https_when_scheme_missing():
+    assert _normalize_link("www.cookbooks.com/Recipe-Details.aspx?id=857036") == (
+        "https://www.cookbooks.com/Recipe-Details.aspx?id=857036"
+    )
+
+
+def test_normalize_link_leaves_https_unchanged():
+    url = "https://www.cookbooks.com/Recipe-Details.aspx?id=857036"
+    assert _normalize_link(url) == url
+
+
+def test_normalize_link_leaves_http_unchanged():
+    url = "http://www.cookbooks.com/Recipe-Details.aspx?id=857036"
+    assert _normalize_link(url) == url
+
+
+def test_normalize_link_empty_stays_empty():
+    assert _normalize_link("") == ""
+    assert _normalize_link(None) == ""
+
+
+def test_recommend_links_have_scheme_and_no_double_prefix():
+    resp = client.post("/api/recommend", json={"query": "chicken, rice, garlic", "k": 5})
+    body = resp.json()
+    assert len(body) > 0
+    for item in body:
+        link = item["link"]
+        assert link == "" or link.startswith("http://") or link.startswith("https://")
+        assert "https://https://" not in link
+        assert "https://http://" not in link
+
+
+def test_search_links_have_scheme_and_no_double_prefix():
+    resp = client.post("/api/search", json={"query": "fried rice", "k": 5})
+    body = resp.json()
+    assert len(body) > 0
+    for item in body:
+        link = item["link"]
+        assert link == "" or link.startswith("http://") or link.startswith("https://")
+        assert "https://https://" not in link
+        assert "https://http://" not in link

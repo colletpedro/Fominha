@@ -75,6 +75,19 @@ def _tokenize_for_mode1(query: str) -> list[str]:
     return query.split()
 
 
+def _normalize_link(link: str) -> str:
+    """RecipeNLG guarda links sem esquema (ex.: "www.foo.com/..."). Um href
+    sem esquema no frontend vira caminho relativo -> 404 na propria origem.
+    Vazio/None passa direto; com esquema fica intocado; caso contrario, prefixa
+    https://.
+    """
+    if not link:
+        return ""
+    if link.startswith("http://") or link.startswith("https://"):
+        return link
+    return f"https://{link}"
+
+
 @app.post("/api/recommend")
 async def api_recommend(request: QueryRequest):
     if not app.state.mode1_available:
@@ -88,7 +101,10 @@ async def api_recommend(request: QueryRequest):
     except IndexNotBuiltError:
         raise HTTPException(status_code=503, detail=MODE1_UNAVAILABLE_MSG)
 
-    return [asdict(r) for r in results]
+    payload = [asdict(r) for r in results]
+    for item in payload:
+        item["link"] = _normalize_link(item["link"])
+    return payload
 
 
 @app.post("/api/search")
@@ -101,7 +117,10 @@ async def api_search(request: QueryRequest):
     except SemanticIndexNotBuiltError:
         raise HTTPException(status_code=503, detail=MODE2_UNAVAILABLE_MSG)
 
-    return [asdict(r) for r in results]
+    payload = [asdict(r) for r in results]
+    for item in payload:
+        item["link"] = _normalize_link(item["link"])
+    return payload
 
 
 @app.get("/")
