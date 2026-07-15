@@ -24,7 +24,7 @@ Summarized from `SPEC.md` section 11 and `SPEC-MODE2.md` section 11 (ADR-lite):
 - **RecipeNLG's `NER` column as the ingredient source, plus a custom normalization pipeline** — parsing raw ingredient strings is the biggest quality risk; the dataset's own pre-extracted entities plus deterministic normalization keep that risk bounded without outsourcing it to a heavier NLP stack.
 - **Same normalization pipeline for dataset and user query** — index-time and query-time features must live in the same space or cosine similarity breaks silently.
 - **Bigrams in the TF-IDF vocabulary (`ngram_range=(1,2)`)** — compound ingredients ("cream cheese", "olive oil") become a single feature instead of two diluted unigrams.
-- **Suffix-rule singularization, no spaCy/NLTK** — a full lemmatizer is a heavy dependency for marginal gain over a food-ingredient vocabulary; see [Known limitations](#9-known-limitations) for the trade-off this makes.
+- **Suffix-rule singularization, no spaCy/NLTK** — a full lemmatizer is a heavy dependency for marginal gain over a food-ingredient vocabulary; see [Known limitations](#10-known-limitations) for the trade-off this makes.
 
 **Mode 2:**
 - **`sentence-transformers/all-MiniLM-L6-v2`, 384 dims, CPU-capable** — runs locally at no API cost, sufficient retrieval quality.
@@ -56,7 +56,7 @@ python scripts/03_evaluate.py --k 1 5 10 --n-eval 1000 --mask-frac 0.3 --seed 42
 python scripts/04_query.py --ingredients "chicken, rice, garlic" --k 10
 ```
 
-`01_ingest.py` reads the raw CSV, samples `--n-recipes` rows with `--seed`, normalizes ingredients, and writes `data/processed/recipes.parquet`. `02_build_index.py` takes no arguments — it builds the TF-IDF index from that parquet and writes `artifacts/`. `03_evaluate.py` runs the two evaluation protocols (section 6) and writes `reports/eval_mode1.json`. `04_query.py` is the manual query CLI.
+`01_ingest.py` reads the raw CSV, samples `--n-recipes` rows with `--seed`, normalizes ingredients, and writes `data/processed/recipes.parquet`. `02_build_index.py` takes no arguments — it builds the TF-IDF index from that parquet and writes `artifacts/`. `03_evaluate.py` runs the two evaluation protocols (section 7) and writes `reports/eval_mode1.json`. `04_query.py` is the manual query CLI.
 
 **Example query output** (`--ingredients "chicken, rice, garlic" --k 5`, run against the 100k-recipe index):
 
@@ -87,7 +87,7 @@ python scripts/04_query.py --ingredients "chicken, rice, garlic" --k 10
    link: https://www.cookbooks.com/Recipe-Details.aspx?id=581696
 ```
 
-Result 3 is a useful example of why `matched_ingredients` can be empty while the recipe still ranks: see [Known limitations](#9-known-limitations).
+Result 3 is a useful example of why `matched_ingredients` can be empty while the recipe still ranks: see [Known limitations](#10-known-limitations).
 
 ## 5. Quickstart — Mode 2
 
@@ -102,7 +102,7 @@ python scripts/07_evaluate_semantic.py --k 1 5 10 --n-eval 1000 --mask-frac 0.3 
 python scripts/08_compare_modes.py
 ```
 
-`05_build_embeddings.py` takes no arguments — it embeds every recipe in the parquet, builds the FAISS index, and writes `artifacts/embeddings.faiss` + `artifacts/embeddings_meta.json`. On this machine it ran in `build_seconds=206.82` using Apple Silicon GPU (MPS) — expect substantially longer on CPU-only hardware (see [Known limitations](#9-known-limitations)). `06_query_semantic.py` is the manual query CLI. `07_evaluate_semantic.py` runs Protocol C (section 7) and writes `reports/eval_mode2.json`. `08_compare_modes.py` runs the 15 curated Protocol D queries against both modes and writes `reports/comparison_mode1_vs_mode2.md`.
+`05_build_embeddings.py` takes no arguments — it embeds every recipe in the parquet, builds the FAISS index, and writes `artifacts/embeddings.faiss` + `artifacts/embeddings_meta.json`. On this machine it ran in `build_seconds=206.82` using Apple Silicon GPU (MPS) — expect substantially longer on CPU-only hardware (see [Known limitations](#10-known-limitations)). `06_query_semantic.py` is the manual query CLI. `07_evaluate_semantic.py` runs Protocol C (section 8) and writes `reports/eval_mode2.json`. `08_compare_modes.py` runs the 15 curated Protocol D queries against both modes and writes `reports/comparison_mode1_vs_mode2.md`.
 
 **Example query output** (`--query "something light and quick with chicken" --k 5`):
 
@@ -125,7 +125,27 @@ python scripts/08_compare_modes.py
 
 Note there's no `matched`/`missing` here — see [What it does — Mode 2](#2-what-it-does--mode-2-semantic) for why.
 
-## 6. Evaluation — Mode 1
+## 6. Demo UI
+
+A local single-page app that runs the same query against both modes at once and shows the results side by side — built to make the lexical-vs-semantic contrast visible, not to hide it.
+
+<video src="docs/demo.mp4" controls width="100%"></video>
+
+*(If the video doesn't render inline, it's at [`docs/demo.mp4`](docs/demo.mp4).)*
+
+**Run it** (requires the indices already built — see [Quickstart — Mode 1](#4-quickstart--mode-1) and [Quickstart — Mode 2](#5-quickstart--mode-2), scripts `01`, `02`, `05`):
+
+```bash
+pip install -e .
+python -m uvicorn fominha.api.app:app
+# http://localhost:8000
+```
+
+First startup loads both indices (~9s); every query after that responds in ~10ms.
+
+**Design note:** the two result cards are deliberately asymmetric — Mode 2's card has no `matched`/`missing` chips, because there is no notion of ingredient match in embedding space (decision D-28). A permanent banner reminds you that scores aren't comparable across modes. The UI follows the same honesty rules as the rest of this project: it doesn't manufacture a false sense of parity between the two retrieval methods.
+
+## 7. Evaluation — Mode 1
 
 RecipeNLG has no user ratings, so "relevant" cannot come from ground truth — it has to be constructed. Two protocols, both seeded (`seed=42`) for reproducibility, both against the 100k-recipe subset:
 
@@ -147,7 +167,7 @@ Average relevant recipes per query (Protocol B, diagnostic for a degenerate thre
 
 **Honest reading:** `hit_rate@10 = 0.953` is high largely because the origin recipe is present in the index and the query is literally a subset of its own ingredients — that's exactly what Protocol A is designed to measure (recovery from partial information, the real Mode 1 use case), not evidence of some independent notion of "correctness." `precision@k` is lower and, per the limitation above, partially circular with the ranker's own signal — read it as a regression check, not a quality proof.
 
-## 7. Evaluation — Mode 2
+## 8. Evaluation — Mode 2
 
 **Protocol C — Masked retrieval, semantic (metric: `hit_rate@k`, comparable to Protocol A).** Identical definition to Protocol A, same system-under-test swap: the *same* 1000 masked queries from Mode 1's evaluation (reused via `build_masked_queries`, not resampled — decision D-24), converted to a comma-joined string and sent to `search()` instead of `recommend()`. No additional template on the query (decision D-25) — the raw token string is the closest-to-identical input the two modes accept.
 
@@ -165,7 +185,7 @@ Average relevant recipes per query (Protocol B, diagnostic for a degenerate thre
 
 The manual reading of that comparison — where each mode wins, where both fail — is below.
 
-## 8. Lexical vs. semantic: the contrast
+## 9. Lexical vs. semantic: the contrast
 
 ### Lexical vs. semantic retrieval: what the comparison actually shows
 
@@ -218,7 +238,7 @@ Bread" vs. "Annie's Banana Bread") are a real but secondary factor. The pair of
 results is the point: Mode 2 loses on Mode 1's terrain (Protocol C) and wins on
 its own (Protocol D, group A). Neither number alone describes the system.
 
-## 9. Known limitations
+## 10. Known limitations
 
 This is a portfolio-honesty section, not an apology.
 
@@ -230,8 +250,9 @@ This is a portfolio-honesty section, not an apology.
 - **`build_seconds=206.82` for the full embeddings build was measured on Apple Silicon GPU (MPS)**, not CPU. On CPU-only hardware the build is substantially slower (`SPEC-MODE2.md` RNF-22 estimates "dezenas de minutos" / tens of minutes for 100k on CPU). Any decision to scale embedding generation to the full 2.2M dataset should use the CPU cost as the reference, not this machine's GPU-accelerated number.
 - **The Mode 2 artifact field is `index_built_at`, not `built_at`.** This corrects the ambiguous naming used in Mode 1's `index_meta.json` (`built_at` doesn't say built *what*), a fix that applies to new artifacts going forward only — Mode 1's already-versioned artifact schema is untouched (decision D-29 in `SPEC-MODE2.md`).
 - **Negation in queries is understood by neither mode.** `"easy pasta with garlic and no cream"` (Protocol D, q07) returns cream-based results as top hits in both Mode 1 (lexical match on "cream" as a token) and Mode 2 (semantic embedding doesn't encode "no" as an operator over "cream" — it just sees "cream" as a nearby concept). See the contrast analysis above for concrete examples.
+- Recipe links come from RecipeNLG (published 2020) and are not validated. Some resolve correctly, some 404, and some domains are gone entirely — the dataset is a 2020 snapshot of the web. Validating ~100k URLs is out of scope; the links are kept as the dataset's original references.
 
-## 10. Scope & non-goals
+## 11. Scope & non-goals
 
 These are decisions, not omissions (`SPEC.md` section 2.2, `SPEC-MODE2.md` section 2.2):
 
@@ -244,11 +265,11 @@ These are decisions, not omissions (`SPEC.md` section 2.2, `SPEC-MODE2.md` secti
 - **No datasets other than RecipeNLG, no translation/multilingual support** — a non-English query degrades silently in both modes; this is documented, not handled.
 - **No full 2.2M-recipe dataset** — both modes run on the 100k subset; scaling is explicitly post-gate work.
 
-## 11. Roadmap
+## 12. Roadmap
 
 Mode 2 (semantic search via sentence embeddings + FAISS) is **delivered**: `search()`, Protocol C (quantitative, comparable to Mode 1), and Protocol D (qualitative curated contrast) are all implemented and reported above. What's left, explicitly out of scope for this phase: embedding the full ~2.2M-recipe RecipeNLG dataset (currently both modes run on the 100k subset) — the same "subset first, close the loop before paying for scale" rationale as Mode 1's `RNF-02`.
 
-## 12. Tech stack
+## 13. Tech stack
 
 Python >= 3.11, `pandas`, `pyarrow`, `scikit-learn`, `scipy`, `pytest` (Mode 1), plus `sentence-transformers` and `faiss-cpu` (Mode 2).
 
@@ -261,6 +282,8 @@ Python >= 3.11, `pandas`, `pyarrow`, `scikit-learn`, `scipy`, `pytest` (Mode 1),
 **Por que essas escolhas.** Sem ratings de usuário no RecipeNLG, então collaborative filtering está fora dos dois modos; TF-IDF + cosseno é um baseline léxico interpretável e sem treino; o Modo 2 usa um modelo de embeddings local (sem custo de API, sem GPU obrigatória) e busca exata via FAISS `IndexFlatIP`, suficiente no subset de 100k.
 
 **Non-goals declarados.** Sem collaborative filtering, sem LLM de geração (em nenhum dos modos), sem web app/API/UI, sem personalização por usuário, sem infraestrutura externa, sem indexação aproximada, sem fine-tuning, sem outros datasets além do RecipeNLG, sem full dataset (2.2M) nesta fase.
+
+**Demo UI.** Uma página local roda a mesma query nos dois modos e mostra os resultados lado a lado, com o vídeo da demo em `docs/demo.mp4`. Para rodar: `pip install -e .` seguido de `python -m uvicorn fominha.api.app:app`.
 
 **Quickstart condensado.**
 ```bash
